@@ -1,0 +1,10 @@
+Flask==3.1.2
+waitress==3.0.2
+cheroot==11.1.2
+opencv-python==4.11.0.86
+ultralytics==8.3.235
+numpy==2.2.6
+Pillow==13.0.0
+cryptography==46.0.3
+tzdata==2025.2
+pytest==8.4.2

@@ -1,0 +1,55 @@
+{% extends 'base.html' %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/setup.js') }}" defer></script>{% endblock %}
+{% block content %}
+<main class="main setup-main">
+  <div class="eyebrow">Workspace <span>/</span> Input source</div>
+  <div class="page-heading"><div><h1>Camera setup</h1><p>Choose an input source to begin monitoring attendance.</p></div><span class="subtle-label"><i data-lucide="network"></i> Local connection</span></div>
+  <div class="source-options" role="radiogroup" aria-label="Camera source">
+    <label class="source-card"><input type="radio" name="source" value="webcam" checked><span class="source-icon"><i data-lucide="webcam"></i></span><span class="source-copy"><strong>Built-in camera</strong><span>Use a camera connected directly to this computer.</span></span><span class="radio-indicator"></span></label>
+    <label class="source-card"><input type="radio" name="source" value="ip"><span class="source-icon"><i data-lucide="smartphone"></i></span><span class="source-copy"><strong>Phone camera</strong><span>Stream from your browser. No app or download needed.</span></span><span class="radio-indicator"></span></label>
+  </div>
+  <section class="connection-panel">
+    <div class="connection-form">
+      <div class="section-kicker">INPUT SETTINGS</div>
+      <h2 id="source-title">Connect your camera</h2>
+      <p class="section-description" id="source-description">Select a device, then check its live preview.</p>
+      <div id="webcam-fields">
+        <div class="label-row"><label for="camera-index">Camera device</label><button type="button" class="text-button" id="scan-cameras"><i data-lucide="refresh-cw"></i>Scan devices</button></div>
+        <div class="select-wrap"><select id="camera-index"><option value="manual">Choose or enter a camera index</option></select><i data-lucide="chevron-down"></i></div>
+        <div id="manual-index-row" class="manual-index-row"><label for="manual-index">Device index</label><input id="manual-index" type="number" min="0" max="20" value="0"><span class="field-help">Usually 0 for a built-in webcam.</span></div>
+        <p class="field-help" id="scan-feedback">Scan for connected cameras, or enter a device index.</p>
+      </div>
+      <div id="browser-fields" hidden>
+        <label for="browser-facing">Phone camera</label>
+        <div class="select-wrap"><select id="browser-facing"><option value="environment">Back camera</option><option value="user">Front camera</option></select><i data-lucide="chevron-down"></i></div>
+        <button class="button button-primary browser-start-button" id="start-browser-camera"><i data-lucide="smartphone"></i>Use this phone’s camera</button>
+        <p class="field-help" id="browser-camera-help">Allow camera access when your browser asks. Keep this page open while streaming.</p>
+        <a class="secure-camera-link" id="secure-camera-link" hidden>Open secure camera connection<i data-lucide="external-link"></i></a>
+        <p class="field-help" id="browser-camera-error" role="status"></p>
+        <button class="text-button" id="show-ip-fields">Use an IP camera URL instead</button>
+      </div>
+      <div id="ip-fields" hidden>
+        <label for="stream-url">Camera stream URL</label>
+        <input id="stream-url" type="text" inputmode="url" spellcheck="false" autocomplete="off" placeholder="http://192.168.1.100:8080/video">
+        <p class="field-help">Use the direct MJPEG, HTTP or RTSP stream from your phone’s camera app. Both devices must share a local network.</p>
+        <button type="button" class="text-button saved-camera-button" id="use-saved" hidden><i data-lucide="key-round"></i>Use saved IP camera</button>
+        <button type="button" class="text-button saved-camera-button" id="show-browser-fields">Use this phone’s browser instead</button>
+      </div>
+      <button class="button button-secondary test-button" id="test-camera"><i data-lucide="video"></i>Test connection</button>
+      <div class="connection-feedback" id="connection-feedback" role="status">No camera has been tested yet.</div>
+      <div class="connection-note"><i data-lucide="info"></i><p>Testing switches the active camera. Only one source runs at a time.</p></div>
+    </div>
+    <div class="preview-column">
+      <div class="preview-header"><span>Live preview</span><span class="small-status" id="preview-status"><span class="dot"></span>Not connected</span></div>
+      <div class="setup-preview" id="setup-preview">
+        <img id="preview-feed" alt="Live preview from the selected camera" hidden>
+        <video id="browser-local-preview" class="browser-local-video" autoplay muted playsinline disablepictureinpicture hidden aria-label="Live preview from this device"></video>
+        <div class="preview-empty" id="preview-empty"><span class="preview-empty-icon"><i data-lucide="video-off"></i></span><strong id="preview-empty-title">Your camera preview will appear here</strong><p id="preview-empty-description">Choose a source and test the connection.</p></div>
+      </div>
+      <div class="preview-caption"><i data-lucide="scan-face"></i><span>Position the camera at face height with even lighting.</span></div>
+    </div>
+  </section>
+  <div class="setup-actions"><p><i data-lucide="lock-keyhole"></i>Camera settings are encrypted on this computer.</p><button class="button button-primary" id="save-camera"><i data-lucide="check"></i>Save &amp; Continue</button></div>
+  <aside class="model-notice" id="model-notice" hidden><i data-lucide="triangle-alert"></i><div><strong id="model-notice-title">Face detector unavailable</strong><p id="model-notice-message"></p></div></aside>
+</main>
+{% endblock %}

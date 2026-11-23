@@ -1,0 +1,32 @@
+{% extends 'base.html' %}
+{% block scripts %}<script src="{{ url_for('static', filename='js/dashboard.js') }}" defer></script>{% endblock %}
+{% block content %}
+<main class="main dashboard-main">
+  <div class="eyebrow">Workspace <span>/</span> Overview</div>
+  <div class="page-heading"><div><h1>Attendance overview</h1><p>Real-time activity from the entrance camera.</p></div><a class="button button-primary" href="/camera"><i data-lucide="video"></i>Open camera</a></div>
+  <div class="overview-controls"><div class="date-control"><i data-lucide="calendar-days"></i><label class="sr-only" for="attendance-date">Attendance date</label><input id="attendance-date" type="date" value="{{ today }}"><button class="text-button" id="today-button">Today</button></div><span class="subtle-label"><span class="dot live" id="updates-dot"></span><span id="updates-label">Live updates</span></span></div>
+  <section class="stats-grid" aria-label="Attendance statistics">
+    <article class="stat"><div class="stat-label">Total attendance<i data-lucide="users-round"></i></div><div class="stat-value numeric" id="total-count">—</div><div class="stat-support" id="count-period">Confirmed entries today</div></article>
+    <article class="stat"><div class="stat-label">Camera status<i data-lucide="webcam"></i></div><div class="stat-value status-value" id="camera-status-value">—</div><div class="stat-support" id="camera-source-label">Checking connection</div></article>
+    <article class="stat"><div class="stat-label">Detection status<i data-lucide="scan-face"></i></div><div class="stat-value status-value" id="detection-status-value">—</div><div class="stat-support" id="detection-status-support">Checking face detector</div></article>
+    <article class="stat"><div class="stat-label">Last check-in<i data-lucide="clock-3"></i></div><div class="stat-value numeric last-value" id="last-checkin">—</div><div class="stat-support" id="last-checkin-support">No entry recorded yet</div></article>
+  </section>
+  <div class="dashboard-panels">
+    <section class="panel activity-panel">
+      <div class="panel-heading"><div><h2>Attendance activity</h2><p>Operator-confirmed entries</p></div><span class="count-badge" id="activity-count">0 events</span></div>
+      <div class="table-scroll"><table><thead><tr><th scope="col">Event</th><th scope="col">Time</th><th scope="col">Source camera</th><th scope="col">Status</th></tr></thead><tbody id="events-body"></tbody></table></div>
+      <div class="activity-empty" id="activity-empty"><span class="icon-tile"><i data-lucide="clipboard-check"></i></span><h3>No check-ins yet</h3><p>Confirmed attendance will appear here as it happens.</p><a href="/camera" class="button button-secondary">Open camera</a></div>
+      <div class="load-more-row" id="load-more-row" hidden><button class="text-button" id="load-more">Load earlier events</button></div>
+      <div class="activity-footer"><span id="activity-footer-label">All records are stored on this computer.</span><button class="text-button reset-link" id="reset-today"><i data-lucide="rotate-ccw"></i>Reset today</button></div>
+    </section>
+    <section class="panel weekly-panel">
+      <div class="panel-heading"><div><h2>Last 7 days</h2><p id="weekly-range">Daily confirmed attendance</p></div><i data-lucide="chart-no-axes-column-increasing"></i></div>
+      <div class="weekly-total"><strong class="numeric" id="weekly-total">—</strong><span>entries over 7 days</span></div>
+      <div class="chart-area"><div class="chart-axis" aria-hidden="true"><span id="chart-max">1</span><span id="chart-mid">0</span><span>0</span></div><div class="bar-chart" id="weekly-chart" role="img" aria-label="Loading attendance for the last seven days"></div></div>
+      <p class="chart-note" id="chart-note">Based on saved attendance events.</p>
+    </section>
+  </div>
+  <div class="dashboard-note"><i data-lucide="scan-face"></i><p>A check-in records an entry event. Face detection does not identify a person.</p><a href="/setup">Camera settings<i data-lucide="settings-2"></i></a></div>
+</main>
+<dialog id="reset-dialog" class="dialog"><form id="reset-form"><div class="dialog-heading"><span class="icon-tile danger-tile"><i data-lucide="rotate-ccw"></i></span><button class="icon-button" type="button" data-close-dialog="reset-dialog" aria-label="Close"><i data-lucide="x"></i></button></div><h2>Reset today’s attendance?</h2><p>This permanently removes today’s entry events from this computer. Records from other days stay in place.</p><div class="confirmation-summary"><span id="reset-date"></span><strong id="reset-count"></strong></div><div class="dialog-actions"><button type="button" class="button button-secondary" data-close-dialog="reset-dialog">Keep records</button><button class="button button-danger" type="submit" id="confirm-reset">Reset attendance</button></div></form></dialog>
+{% endblock %}

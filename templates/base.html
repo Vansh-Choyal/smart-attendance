@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <meta name="application-name" content="Attend.">
+  <meta name="theme-color" content="#FAFAF9">
+  <meta name="description" content="Local, operator-confirmed attendance. Face detection without identification.">
+  <title>{{ title }} · Attend.</title>
+  <link rel="icon" href="{{ url_for('static', filename='favicon.svg') }}" type="image/svg+xml">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
+  <script src="{{ url_for('static', filename='vendor/lucide.min.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+  <script src="{{ url_for('static', filename='js/browser-camera.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</head>
+<body class="page-{{ page }}" data-page="{{ page }}" data-operator="{{ 'true' if operator else 'false' }}" data-timezone="{{ timezone_name }}" data-https-port="{{ https_port }}">
+  {% if page != 'camera' %}
+  <header class="app-header">
+    <div class="header-inner">
+      <a class="wordmark" href="/dashboard" aria-label="Attend home">Attend<span>.</span></a>
+      <nav aria-label="Main navigation">
+        <a href="/dashboard" {% if page == 'dashboard' %}aria-current="page"{% endif %}>Dashboard</a>
+        <a href="/camera">Camera</a>
+        <a href="/setup" {% if page == 'setup' %}aria-current="page"{% endif %}>Setup</a>
+      </nav>
+      <div class="header-tools">
+        <time class="header-date" id="header-date">{{ today_label }}</time>
+        <span class="system-status"><span class="dot" id="system-dot"></span><span id="system-label">Connecting</span></span>
+        <button class="operator-button" data-auth-button><i data-lucide="{{ 'lock-open' if operator else 'lock-keyhole' }}"></i><span>{{ 'Operator' if operator else 'Unlock controls' }}</span></button>
+      </div>
+    </div>
+  </header>
+  {% endif %}
+  <div class="browser-stream-banner" id="browser-stream-banner" hidden><span><span class="dot live"></span><span id="browser-stream-banner-label">This device is streaming its camera</span></span><button class="text-button" id="browser-stream-stop">Stop camera</button></div>
+  {% block content %}{% endblock %}
+  {% if page != 'camera' %}
+  <footer class="app-footer">
+    <span><i data-lucide="shield-check"></i>Processed locally. No face images stored.</span>
+    <span>Attend. <span class="footer-divider">/</span> Operator-confirmed entry events</span>
+  </footer>
+  {% endif %}
+  <dialog id="auth-dialog" class="dialog">
+    <form id="auth-form">
+      <div class="dialog-heading"><span class="icon-tile"><i data-lucide="lock-keyhole"></i></span><button type="button" class="icon-button" data-close-dialog="auth-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
+      <h2>Operator access</h2>
+      <p>Unlock camera setup and attendance controls on this browser.</p>
+      <label for="operator-pin">Operator PIN</label>
+      <input id="operator-pin" name="pin" type="password" autocomplete="current-password" required minlength="6" maxlength="128" placeholder="Enter your PIN">
+      <p class="field-help">Your PIN is shown in the server terminal on first launch. Change it with <code>python app.py --set-pin</code>.</p>
+      <p class="form-error" id="auth-error" role="alert"></p>
+      <button type="submit" class="button button-primary wide" id="auth-submit">Unlock controls</button>
+    </form>
+  </dialog>
+  <dialog id="lock-dialog" class="dialog">
+    <div class="dialog-heading"><span class="icon-tile"><i data-lucide="lock-open"></i></span><button class="icon-button" data-close-dialog="lock-dialog" aria-label="Close"><i data-lucide="x"></i></button></div>
+    <h2>Operator controls unlocked</h2><p>This browser can manage the camera and record attendance. Lock it when you step away.</p>
+    <button class="button button-primary wide" id="logout-button">Lock this browser</button>
+  </dialog>
+  <div id="toast-stack" class="toast-stack" aria-live="polite" aria-atomic="true"></div>
+</body>
+</html>
