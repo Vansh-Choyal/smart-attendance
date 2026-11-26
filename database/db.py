@@ -1,4 +1,5 @@
 import sqlite3
+import uuid
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
@@ -20,7 +21,14 @@ class Database:
                 );
                 CREATE INDEX IF NOT EXISTS attendance_timestamp ON attendance_events(timestamp);
                 PRAGMA user_version=1;
+                CREATE TABLE IF NOT EXISTS exhibition_state (
+                    id INTEGER PRIMARY KEY CHECK(id=1), device_id TEXT NOT NULL, revision INTEGER NOT NULL DEFAULT 0
+                );
+                CREATE TABLE IF NOT EXISTS exhibition_outbox (
+                    day TEXT PRIMARY KEY, revision INTEGER NOT NULL, total INTEGER NOT NULL
+                );
             """)
+            db.execute('INSERT OR IGNORE INTO exhibition_state(id,device_id) VALUES(1,?)', (str(uuid.uuid4()),))
 
     @contextmanager
     def connect(self):
@@ -52,7 +60,23 @@ class Database:
                 "INSERT INTO attendance_events(timestamp,camera_source,detection_session_id,status) VALUES (?,?,?,'recorded')",
                 (stamp, source, session_id),
             )
+            self._queue_count(db, self.today())
             return dict(id=cursor.lastrowid, timestamp=stamp, camera_source=source, status="recorded")
+
+    def _queue_count(self, db, day):
+        db.execute('UPDATE exhibition_state SET revision=revision+1 WHERE id=1')
+        revision = db.execute('SELECT revision FROM exhibition_state WHERE id=1').fetchone()[0]
+        total = db.execute('SELECT COUNT(*) FROM attendance_events WHERE timestamp>=? AND timestamp<?', self.bounds(day)).fetchone()[0]
+        db.execute('INSERT INTO exhibition_outbox(day,revision,total) VALUES(?,?,?) ON CONFLICT(day) DO UPDATE SET revision=excluded.revision,total=excluded.total', (day.isoformat(), revision, total))
+
+    def pending_counts(self):
+        with self.connect() as db:
+            device = db.execute('SELECT device_id FROM exhibition_state WHERE id=1').fetchone()[0]
+            return [dict(row) | {'device_id': device} for row in db.execute('SELECT day,revision,total FROM exhibition_outbox ORDER BY revision')]
+
+    def acknowledge_count(self, day, revision):
+        with self.connect() as db:
+            db.execute('DELETE FROM exhibition_outbox WHERE day=? AND revision=?', (day, revision))
 
     def stats(self, day=None):
         day = day or self.today()
@@ -83,4 +107,5 @@ class Database:
         with self.connect() as db:
             db.execute("BEGIN IMMEDIATE")
             cursor = db.execute("DELETE FROM attendance_events WHERE timestamp>=? AND timestamp<?", self.bounds(self.today()))
+            self._queue_count(db, self.today())
             return cursor.rowcount

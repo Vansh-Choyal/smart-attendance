@@ -19,6 +19,7 @@ from services.auth import AuthGuard, initialize_auth
 from services.camera_service import CameraService, validate_source
 from services.detection_service import DetectionPipeline
 from services.secure_store import SecureStore
+from services.exhibition_sync import ExhibitionSync
 
 
 def create_app(overrides=None, camera=None, detector=None):
@@ -39,6 +40,8 @@ def create_app(overrides=None, camera=None, detector=None):
     secret, pin_hash = initialize_auth(directory)
     cfg["SECRET_KEY"], cfg["PIN_HASH"] = secret, pin_hash
     db = Database(directory / "attendance.sqlite3", cfg["TIMEZONE"])
+    sync = ExhibitionSync(cfg, db)
+    app.extensions['exhibition_sync'] = sync
     camera = camera or CameraService(cfg)
     attendance = AttendanceService(cfg, camera, db)
     pipeline = DetectionPipeline(cfg, camera, attendance, detector)
@@ -77,6 +80,10 @@ def create_app(overrides=None, camera=None, detector=None):
         session.setdefault("csrf", secrets.token_urlsafe(32))
         return jsonify(ok=True, data={"operator": bool(session.get("operator")), "csrf": session["csrf"], "timezone": cfg["TIMEZONE"]})
 
+    @app.get('/api/exhibition/status')
+    def exhibition_status():
+        return jsonify(ok=True, data=sync.status())
+
     @app.post("/api/auth/login")
     def login():
         payload = request.get_json(silent=True) or {}
@@ -114,6 +121,7 @@ def create_app(overrides=None, camera=None, detector=None):
         return jsonify(ok=False, error={"code": f"http_{status}", "message": message}), status
 
     def close():
+        sync.close()
         pipeline.close()
         camera.close()
     app.extensions["close"] = close
@@ -126,6 +134,7 @@ def create_app(overrides=None, camera=None, detector=None):
         except Exception:
             app.extensions["configuration_error"] = "Saved camera could not be opened. Reconnect it in Setup."
         pipeline.start()
+        sync.start()
         atexit.register(close)
     return app
 

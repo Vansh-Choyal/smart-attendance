@@ -127,22 +127,16 @@ class AttendanceService:
                     "model": {"phase": model_phase, "error": model_error}, "camera": camera,
                     "cooldown_remaining": max(0, self.config["COOLDOWN_SECONDS"]-(now-self.recorded_at)) if self.locked else 0}
 
-    def mark(self, requested_session):
+    def mark(self, requested_session=None):
         with self.lock, self.camera.lock:
-            current = self.snapshot()
-            if not current["camera"]["connected"]:
-                raise AttendanceError("Connect a camera before marking attendance.", "camera_disconnected")
-            if len(self.eligible) > 1:
-                raise AttendanceError("Multiple faces detected. Isolate one person in the zone.", "multiple_faces")
-            if not current["ready"]:
-                raise AttendanceError(current["message"], "not_ready")
-            if not requested_session or requested_session != self.session_id:
-                raise AttendanceError("The detection session changed. Wait for the current face to be ready.", "session_changed")
+            # One operator click is one entry, independent of camera/model state.
+            # A caller-generated request ID makes network retries idempotent.
+            event_id = requested_session or str(uuid.uuid4())
+            if not isinstance(event_id, str) or not 1 <= len(event_id) <= 128:
+                raise AttendanceError('Invalid attendance request ID.', 'invalid_request', 400)
             try:
-                event = self.database.insert(self.session_id, source_label(self.camera.source))
+                event = self.database.insert(event_id, source_label(self.camera.source) if self.camera.source else 'Manual entry')
             except sqlite3.IntegrityError:
                 self.locked, self.recorded_at, self.state = True, self.clock(), "RECORDED"
                 raise AttendanceError("Attendance has already been recorded for this session.", "already_recorded") from None
-            self.locked, self.recorded_at, self.state = True, self.clock(), "RECORDED"
-            self.clear_since = None
             return {"event": event, "stats": self.database.stats(), "detection": self.snapshot()}

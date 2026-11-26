@@ -41,21 +41,21 @@
       $('monitor-empty-description').textContent = camera.source?.type === 'browser' ? 'Open Setup on your phone and tap Use this phone’s camera. Keep that page open while streaming.' : camera.source ? 'Check the device and local network. Attend will reconnect automatically.' : 'Choose a built-in webcam or connect your phone on the same Wi-Fi network.';
     }
     $('monitor-status').textContent = !A.operator ? 'Operator controls locked' : data.message;
-    $('monitor-instruction').textContent = data.model.error || (!A.operator ? 'Unlock this browser to mark attendance' : data.state === 'WAITING_FOR_CLEAR' || data.state === 'RECORDED' ? 'Have the subject step out before the next entry' : data.ready ? 'Ready for operator confirmation' : 'One person in the zone at a time');
+    $('monitor-instruction').textContent = !A.operator ? 'Unlock this browser to mark attendance' : 'Each click records one attendance entry. Face detection is optional.';
     $('zone-status').textContent = data.message;
     $('detection-zone').classList.toggle('detected',data.faces_in_zone === 1);
     $('toolbar-status-icon').classList.toggle('ready',data.ready && A.operator);
-    const recorded = Date.now() < successUntil || data.state === 'RECORDED';
+    const recorded = Date.now() < successUntil;
     $('mark-attendance').classList.toggle('recorded',recorded);
     $('mark-button-label').textContent = recorded ? 'Attendance recorded' : 'Mark attendance';
-    $('mark-attendance').disabled = busy || !A.operator || !A.online || !data.ready || recorded;
+    $('mark-attendance').disabled = busy || !A.operator || !A.online;
     layout(); boxes();
   }
   async function mark() {
-    if (busy || !$('mark-attendance') || $('mark-attendance').disabled || !state?.ready) return;
+    if (busy || !$('mark-attendance') || $('mark-attendance').disabled) return;
     busy = true; $('mark-attendance').disabled = true;
     try {
-      const result = await A.post('/api/attendance/mark',{session_id:state.session_id});
+      const result = await A.post('/api/attendance/mark',{request_id:crypto.randomUUID()});
       successUntil = Date.now()+1100;
       $('monitor-count').textContent = result.stats.total.toLocaleString('en-IN');
       render(result.detection); A.toast('Attendance recorded · '+A.formatTime(result.event.timestamp,true));
@@ -83,7 +83,7 @@
   window.addEventListener('attend:browser-camera',event => { if (event.detail.phase === 'error' && event.detail.error) A.toast(event.detail.error,true); if (state) render(state); });
   window.addEventListener('attend:offline',() => {
     feed.stop(); $('mark-attendance').disabled = true; $('monitor-empty').hidden = false; $('video-plane').classList.remove('visible');
-    $('monitor-empty-title').textContent = 'Local server unreachable'; $('monitor-empty-description').textContent = 'Check that Attend is running. Attendance is paused until fresh detection returns.';
+    $('monitor-empty-title').textContent = 'Local server unreachable'; $('monitor-empty-description').textContent = 'Check that Attend is running. Marking resumes when the local server reconnects.';
     $('monitor-status').textContent = 'Connection lost'; $('monitor-instruction').textContent = 'Attendance is paused'; $('monitor-live-label').textContent = 'Offline'; $('monitor-live-dot').classList.remove('live');
   });
   new ResizeObserver(layout).observe($('camera-stage'));

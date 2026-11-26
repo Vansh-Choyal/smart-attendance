@@ -20,7 +20,7 @@ def mark():
     if not isinstance(payload,dict):
         return jsonify(ok=False,error={"code":"invalid_body","message":"Provide a JSON object."}),400
     try:
-        result = current_app.extensions["attendance"].mark(payload.get("session_id"))
+        result = current_app.extensions["attendance"].mark(payload.get("request_id") or payload.get("session_id"))
         return jsonify(ok=True, data=result), 201
     except AttendanceError as error:
         return jsonify(ok=False, error={"code": error.code, "message": error.message}), error.status

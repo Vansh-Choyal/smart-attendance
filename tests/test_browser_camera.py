@@ -76,13 +76,13 @@ def test_freshness_tickets_reject_delayed_frames_and_renew(browser_app,phone,jpe
     assert upload(phone,lease,jpeg).status_code==200
 
 
-def test_uploaded_images_are_not_eligible_without_real_detection(browser_app,phone,jpeg):
+def test_uploaded_image_is_not_a_detection_but_manual_mark_is_allowed(browser_app,phone,jpeg):
     lease = start(phone); assert upload(phone,lease,jpeg).status_code==200
     service = browser_app.extensions['attendance']
     assert not service.snapshot()['ready']
     response = phone.post('/api/attendance/mark',json={'face_detected':True},headers={'X-CSRF-Token':phone.csrf})
-    assert response.status_code==409
-    assert service.database.stats()['total']==0
+    assert response.status_code==201
+    assert service.database.stats()['total']==1
 
 
 def test_replayed_and_out_of_order_frames_are_rejected(phone,jpeg):
@@ -120,7 +120,7 @@ def test_navigation_rotates_publisher_without_old_page_stopping_it(browser_app,p
     assert browser_app.extensions['camera'].status()['connected']
 
 
-def test_stopping_browser_invalidates_attendance_but_retains_lock(browser_app,phone,jpeg,face):
+def test_stopping_browser_invalidates_overlay_but_manual_marks_continue(browser_app,phone,jpeg,face):
     lease = start(phone); assert upload(phone,lease,jpeg).status_code==200
     camera,service = browser_app.extensions['camera'],browser_app.extensions['attendance']
     service.observe([face],time.monotonic(),camera.generation)
@@ -132,7 +132,8 @@ def test_stopping_browser_invalidates_attendance_but_retains_lock(browser_app,ph
     assert not camera.status()['connected'] and not service.snapshot()['ready']
     new = start(phone); assert upload(phone,new,jpeg).status_code==200
     service.observe([face],time.monotonic(),camera.generation)
-    assert service.locked and not service.snapshot()['ready']
+    assert not service.snapshot()['ready']
+    assert service.mark()['stats']['total'] == 2
 
 
 def test_invalid_and_oversized_jpeg_rejected(browser_app,phone,jpeg):

@@ -50,3 +50,4 @@ ultralytics-thop==2.2.5
 urllib3==2.8.0
 waitress==3.0.2
 Werkzeug==3.1.9
+python-dotenv==1.2.4

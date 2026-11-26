@@ -67,7 +67,7 @@ If no webcam responds, close other apps using it, check its physical connection,
 
 The existing HTTP Setup page also contains the button; on a phone it first opens HTTPS. `http://192.168.x.x:5000` cannot directly request camera access because browsers require a secure context. HTTP localhost on the laptop is a permitted development exception. The server sends `Permissions-Policy: camera=(self), microphone=(), geolocation=()` and does not request audio.
 
-Browser uploads allow exactly one active publisher. Each JPEG requires operator authentication, CSRF, a current publisher token, an ordered sequence number and a one-use server-issued capture ticket. Tickets expire after the detection freshness limit; capture timestamps are conservatively anchored to ticket issuance, so delayed buffered uploads cannot become fresh detections. Uploads have a 2MiB limit, JPEG-only decoding and dimension/pixel bounds. Frames use the same latest-frame slot, YOLO worker, zone checks, session lockout and SQLite insertion as a native camera. No browser video or uploaded image is written to disk. Only the source choice is saved; camera access always requires browser permission.
+Browser uploads allow exactly one active publisher. Each JPEG requires operator authentication, CSRF, a current publisher token, an ordered sequence number and a one-use server-issued capture ticket. Tickets expire after the detection freshness limit; capture timestamps are conservatively anchored to ticket issuance, so delayed buffered uploads cannot become fresh detections. Uploads have a 2MiB limit, JPEG-only decoding and dimension/pixel bounds. Frames use the same latest-frame slot, YOLO worker, zone overlays and SQLite insertion as a native camera. No browser video or uploaded image is written to disk. Only the source choice is saved; camera access always requires browser permission.
 
 ## Optional existing IP-camera stream
 
@@ -111,24 +111,26 @@ The download script installs **yolov8n-face.pt** from [akanametov/yolo-face](htt
 * Pinned SHA-256: `d545bf1add5aa736a4febac4f4f9245a6d596cd0fe70d5d57989fe0cb9e626ca`
 * Model source repository declares [GPL-3.0](https://github.com/akanametov/yolo-face/blob/dev/LICENSE). The installed Ultralytics package is under [AGPL-3.0, with an enterprise licensing option](https://www.ultralytics.com/license). Review those upstream terms when redistributing or changing deployment scope. This project does not relicense upstream weights or dependencies.
 
-`scripts/download_model.py` downloads only that source, verifies the pinned checksum and installs atomically. A changed/unexpected weight file is rejected by the downloader. The application never automatically falls back to a person detector, Haar cascade or fake detections. If weights are missing, invalid, or cannot initialize, the UI shows a model error and attendance stays disabled. Restart after fixing the model.
+`scripts/download_model.py` downloads only that source, verifies the pinned checksum and installs atomically. A changed/unexpected weight file is rejected by the downloader. The application never automatically falls back to a person detector, Haar cascade or fake detections. If weights are missing, invalid, or cannot initialize, the UI shows a model error; manual marking remains available. Restart after fixing the model.
 
-## What a check-in means
+## Manual attendance and production count sync
 
-A check-in is an **operator-confirmed entry event**, not verified personal identity, student attendance by name, or a unique-person count. Someone returning after the zone clears can be counted again. The model can also detect a face displayed in a photo/screen: there is no liveness verification. Supervise the demonstration accordingly.
+Mark Attendance records one operator-confirmed entry per click. It works with no face, multiple faces, an unavailable detector, or a disconnected camera. YOLO remains an optional local visual aid. Each browser click supplies a unique request ID; retrying the same ID cannot insert another entry. Authentication and CSRF checks still apply.
 
-The pipeline is:
+All camera capture and YOLO processing run on this local computer. Production hosts only the count receiver and count display, not this application. No frames, face boxes, names or individual attendance records are uploaded to production.
 
-```text
-Camera capture → latest frame → face-only YOLO → zone + stability
-              → operator confirmation → atomic SQLite insertion
+Create `.env` in the repository root (it is ignored by Git):
+
+```dotenv
+EXHIBITION_KEY=<provided exhibition key>
+EXHIBITION_URL=https://exhibition.qunivex.com/api/attendance/count
 ```
 
-An eligible face must have confidence ≥0.60, its bounding-box **center** inside the configured zone, and stable geometric overlap for 400ms. Faces outside the zone do not enable recording. Two or more faces with centers inside the zone disable recording and reset stability. Bounding-box overlap is only an ephemeral continuity check, not identity tracking.
+Restart the local app after changing `.env`. The provided exhibition key must match production; a missing or wrong key is rejected by the receiver. The actual key is deliberately absent from this public repository and `.env.example`.
 
-The explicit states are `IDLE → FACE_DETECTED → READY → RECORDED → WAITING_FOR_CLEAR → IDLE`, with `CAMERA_DISCONNECTED` overriding eligibility when the camera or detector cannot supply fresh data. After recording, **both** a continuously clear zone for one second **and** a minimum two-second cooldown are required. Occupancy keeps the system locked indefinitely. A camera switch or network failure cannot bypass that lock. Restarting the server resets all ephemeral detection state, so have the zone clear before resuming a demonstration.
+Each local entry or daily reset queues the current daily total in the same SQLite transaction. A background worker sends pending snapshots every three seconds and retries after outages. A persistent installation UUID and increasing revision prevent retries or delayed requests from double-counting or overwriting newer totals. Multiple installations contribute separate totals. Keep the data directory to retain installation identity; copying it to another live workstation would reuse that identity. Local resets sync a newer zero total for that installation, not a global reset of other devices.
 
-`POST /api/attendance/mark` verifies connection, current frame/detection generation and age, one eligible face, READY state, and the server-issued session token. A shared lock serializes inference commits, marking and source changes. A transaction inserts the event; a UNIQUE index on `detection_session_id` provides a second duplicate-request safeguard. The client submits no count. SQLite is the only source of attendance totals.
+`GET /api/exhibition/status` shows whether sync is configured, pending days and the last sync error. Production's public count is at `/attendance-count` and `GET /api/attendance/count`; updating it requires `X-Exhibition-Key` over HTTPS. Historical server-side records are preserved separately in the production total.
 
 ## Data and privacy
 
@@ -138,7 +140,7 @@ The explicit states are `IDLE → FACE_DETECTED → READY → RECORDED → WAITI
 attendance_events(id, timestamp, camera_source, detection_session_id, status)
 ```
 
-The session identifier is a random occupancy-session token, unrelated to the person's face. Camera source is a safe display label, never a stream URL. Timestamps are UTC ISO 8601; `Asia/Kolkata` is the default display/grouping timezone. Day boundaries are computed in that timezone, including DST when another configured timezone requires it. Schema initialization is automatic, with `PRAGMA user_version=1`, WAL mode, a timestamp index and busy timeout. Restarting does not clear events. IDs remain globally increasing after a daily reset.
+The event identifier is a random per-click request ID, unrelated to the person's face. Count sync metadata and a durable outbox are stored alongside events. Camera source is a safe display label, never a stream URL. Timestamps are UTC ISO 8601; `Asia/Kolkata` is the default display/grouping timezone. Day boundaries are computed in that timezone, including DST when another configured timezone requires it. Schema initialization is automatic, with `PRAGMA user_version=1`, WAL mode, a timestamp index and busy timeout. Restarting does not clear events. IDs remain globally increasing after a daily reset.
 
 Camera frames, encoded JPEGs and normalized face boxes exist **in memory only** and expire with the current state. No images, raw footage, crops, face embeddings, landmarks, biometric identifiers or recognition libraries are stored. Ultralytics prediction uses `save=False`, `save_txt=False`, `save_crop=False` and `show=False`. The application makes no cloud inference requests. Browser/API responses for live data use `Cache-Control: no-store`. Fonts and Lucide icons are bundled locally with their upstream license notices.
 

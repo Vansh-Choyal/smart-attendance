@@ -1,11 +1,15 @@
 """All timing, camera and inference controls live here (or ATTEND_* environment variables)."""
 import os
 from pathlib import Path
+from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent
+load_dotenv(ROOT / '.env', override=False)
 
 
 class Config:
+    EXHIBITION_KEY = os.getenv('EXHIBITION_KEY', '')
+    EXHIBITION_URL = os.getenv('EXHIBITION_URL', 'https://exhibition.qunivex.com/api/attendance/count')
     DATA_DIR = Path(os.getenv("ATTEND_DATA_DIR", ROOT / "data"))
     MODEL_PATH = Path(os.getenv("ATTEND_MODEL_PATH", ROOT / "models" / "yolov8n-face.pt"))
     TIMEZONE = os.getenv("ATTEND_TIMEZONE", "Asia/Kolkata")
